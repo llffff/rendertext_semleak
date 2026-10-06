@@ -1,0 +1,7 @@
+# CLIP similarity service dependencies.
+fastapi==0.136.1
+uvicorn==0.46.0
+pydantic==2.13.3
+Pillow>=9
+torch>=2.2
+transformers>=4.57

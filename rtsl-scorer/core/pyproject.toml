@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rtsl-scorer-core"
+version = "0.1.0"
+description = "Lightweight client for rendered-text semantic leakage scoring with external backends"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["text-to-image", "semantic leakage", "evaluation", "vision-language models"]
+dependencies = ["Pillow>=9"]
+classifiers = ["Programming Language :: Python :: 3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
