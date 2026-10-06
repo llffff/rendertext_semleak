@@ -1,0 +1,23 @@
+# Image generation and evaluation dependencies (Python 3.11).
+# Install CUDA wheels from the cu128 index first; see README.md.
+# Exact local-version pins prevent replacement by another CUDA/CPU build.
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+torchaudio==2.11.0+cu128
+diffusers==0.37.1
+transformers==5.7.0
+accelerate==1.13.0
+huggingface-hub==1.13.0
+tokenizers==0.22.2
+numpy==2.3.5
+fastapi==0.136.1
+uvicorn==0.46.0
+pydantic==2.13.3
+pillow==12.2.0
+safetensors==0.7.0
+sentencepiece==0.2.1
+python-dotenv>=1,<2
+pandas==3.0.2
+matplotlib
+ipykernel
+jupyterlab
