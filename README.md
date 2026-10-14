@@ -1,26 +1,24 @@
-# When Scene Text Hijacks the Scene
+# Measuring Rendered-Text Semantic Leakage
 
 ![IEEE S&P 2027](https://img.shields.io/badge/IEEE%20S%26P-2027-8A2BE2?style=flat-square)
 [![TSL-60 Dataset](https://img.shields.io/badge/TSL--60-Hugging%20Face-yellow?style=flat-square)](https://huggingface.co/datasets/feifeili00/rendertext_semleak)
 [![PyPI](https://img.shields.io/badge/PyPI-rtsl--scorer-blue?style=flat-square)](https://pypi.org/project/rtsl-scorer/)
 
-**[Quickstart](quickstart.ipynb) · [Dataset](https://huggingface.co/datasets/feifeili00/rendertext_semleak) · [Scorer](rtsl-scorer/README.md)**
+**[Paper](https://arxiv.org/abs/2610.11286) · [Quickstart](quickstart.ipynb) · [Agentic search](notebooks/agentic_search_demo.ipynb) · [Dataset](https://huggingface.co/datasets/feifeili00/rendertext_semleak) · [Scorer](rtsl-scorer/README.md)**
 
-Code for measuring rendered-text semantic leakage (TSL) in generated images.
+Modern image generators read both a scene description and the words requested inside the image as part of the same prompt. Those words are meant to appear as text, yet their meaning can also shape the surrounding scene—rendered-text semantic leakage (TSL). In the example below, prompt enhancement removes a safety-sensitive phrase from a direct request but preserves it when the phrase is specified as scene text; the resulting image reflects its meaning outside the text region. This repository provides `rtsl-scorer` to measure leakage and a benchmark that compares automated judgments with human labels.
 
 ![Rendered-text semantic leakage example](assets/teaser.png)
 
 ## What the scores measure
 
-**TSL** occurs when text requested *inside* an image also changes its non-text visual content. For example, a request to print “a dog” may cause a dog to appear in the scene. The evaluator uses OCR to mask visible writing before measuring leakage, so reading the words in the image is not enough to count as visual evidence.
+The scorer masks visible writing with OCR before evaluating leakage, so the written phrase itself does not count as evidence of a changed scene.
 
 - **Word recall (WR)** measures how much of the requested text appears in the generated image. It measures text-rendering fidelity, separately from leakage.
 - **Direct TSL (DTSL)** is the CLIP similarity between the requested rendered text and the target image after masking its visible text.
 - **Normalized TSL (NSL)** subtracts a matched baseline from DTSL. For each of the 72 main visual prompts, `TSL60_base_prompts.csv` provides two alternative prompts that keep the main scene and rendering instructions while replacing the target text. Generating them produces two **matched base images**. After masking each base image's own text, the evaluator compares both bases with the *target* rendered text:
 
-  $$
-  \mathrm{NSL}=\mathrm{CLIP}(I_{\mathrm{target}}^{\mathrm{mask}},t)-\frac{1}{2}\sum_{i=1}^{2}\mathrm{CLIP}(I_{\mathrm{base},i}^{\mathrm{mask}},t).
-  $$
+  $\mathrm{NSL}=\mathrm{CLIP}(I_{\mathrm{target}}^{\mathrm{mask}},t)-\frac{1}{2}\sum_{i=1}^{2}\mathrm{CLIP}(I_{\mathrm{base},i}^{\mathrm{mask}},t).$
 
   where $t$ is the target rendered text. A positive NSL means the target's non-text region aligns with $t$ more strongly than the matched bases do.
 
@@ -36,9 +34,9 @@ hf download feifeili00/rendertext_semleak --repo-type dataset \
   --include "data/**" --local-dir .
 ```
 
-TSL-60 covers 60 visual goals across 360 image requests in `data/tsl60/TSL60_requests.csv`. `data/tsl60/TSL60_base_prompts.csv` contains 144 prompts for generating the two base images per main visual prompt. `data/benign/` contains the CVTG100 and TIV100 text-rendering requests. To compare GSL scorers against human labels, also download the [images and labels](#compare-gsl-scorers).
+TSL-60 covers 60 visual goals across 360 image requests in `data/tsl60/TSL60_requests.csv`. `data/tsl60/TSL60_base_prompts.csv` contains 144 prompts for generating the two base images per main visual prompt. `data/benign/` contains the CVTG100 and TIV100 text-rendering requests. To compare GSL scorers against human labels, also download the [images and labels](#choose-a-gsl-scorer).
 
-## Install
+## Set up the environment
 
 For scoring existing images, install the [rtsl-scorer package](rtsl-scorer/README.md):
 
@@ -49,7 +47,7 @@ python -m pip install rtsl-scorer
 python -m pip install ./rtsl-scorer/core ./rtsl-scorer
 ```
 
-To generate images with the included backends, use Python 3.11 and NVIDIA CUDA:
+To run the local image generators, use Python 3.11 and NVIDIA CUDA:
 
 ```bash
 conda create -n rtsl python=3.11 pip -y
@@ -64,7 +62,18 @@ For local GSL scoring, install the [Qwen VQA environment](backends/README-vqa.md
 
 ## Evaluate an image generator
 
-Start one image backend. The GPU assignments below are examples:
+### Start and test
+
+Select a generator from the table. The ports match the commands below.
+
+| Image generator | Select it with | Port |
+| --- | --- | ---: |
+| FLUX-2-dev | `flux_2_dev` | `8001` |
+| Qwen-Image | `qwen_image` | `8002` |
+| Z-Image-Turbo | `z_image_turbo` | `8003` |
+| LongCat | `longcat` | `8004` |
+
+Start the selected backend from the repository root. The GPU assignments are examples:
 
 ```bash
 # FLUX.2-dev on seven RTX 4090 GPUs
@@ -76,53 +85,88 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 python -m uvicorn backends.flux_2_dev:app --h
 
 FLUX.2-dev requires access to its [model weights](https://huggingface.co/black-forest-labs/FLUX.2-dev).
 
-- Generate the matched bases with FLUX.2-dev before evaluating NSL:
+Test the connection and generate one image. Set `--url` to your backend's address:
 
-  ```bash
-  python scripts/evaluation/prepare_nsl_bases.py --output outputs/bases \
-    --server http://127.0.0.1:8001/generate
-  ```
+```bash
+python test_generator.py local --url http://127.0.0.1:8001
+```
 
-- Read `data/tsl60/TSL60_requests.csv` and send each `prompt` to the target image backend. Set `--host` and `--port` to its address:
+The image is saved in `outputs/generator_test.png`. To generate and visualize a small TSL-60 batch, run the [quickstart](quickstart.ipynb), which starts with three requests from its TSL-21 subset. Set `MODEL` and `PORT` in [quickstart_config.py](quickstart_config.py) before running it.
 
-  ```bash
-  conda activate rtsl
-  python -m scripts.evaluation.generate_tsl60 flux_2_dev --host 127.0.0.1 --port 8001
-  ```
+### Search from a visual goal
 
-  The images are saved as `outputs/images/flux_2_dev/<id>.png`. If you choose another model, use its name in this command and in the evaluator paths below.
+The [agentic search notebook](notebooks/agentic_search_demo.ipynb) shows the stage instructions and implementation alongside their calls and results: WOI preparation, text selection and rewriting, scene validation, generation, scoring, feedback, and the search loop. Edit [agentic_search_config.py](agentic_search_config.py), restart the kernel, and run the notebook cells in order. The default selects all goals in `notebooks/agentic_search_test_goals.csv` and allows up to five attempts per goal. A successful goal stops early. The batch stage records per-goal errors and continues with the remaining goals.
 
-- Stop the image backend if it shares GPUs with the scorer, then start Qwen3-VL-32B-Instruct in the [Qwen VQA environment](backends/README-vqa.md):
+The default uses OpenRouter for image generation, planning, and VQA; set `OPENROUTER_API_KEY` in the environment or repository `.env`. Calls may incur charges. OCR and CLIP run locally. The configuration file includes a commented alternative for local model servers. Install the scorer and notebook dependencies in the selected kernel environment (`python -m pip install pandas pillow torch jupyterlab`), then run from the repository root or `notebooks/`. The scene templates are included in `data/cvtg_templates.csv`, `data/textinvision_templates.csv`, and `data/synthetic_templates.csv`. Requests, images, feedback, and CSV summaries are saved under `outputs/agentic_search/`.
 
-  ```bash
-  conda activate qwen35-vllm
-  CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 vllm serve Qwen/Qwen3-VL-32B-Instruct --tensor-parallel-size 8 \
-    --served-model-name qwen3-vl-32b --max-model-len 8192 \
-    --enforce-eager --max-num-seqs 1 --port 18700
-  ```
+### Run TSL-60
 
-- Run the evaluator:
+1. Generate target images from `data/tsl60/TSL60_requests.csv` with the selected backend:
 
-  ```bash
-  conda activate rtsl
-  python -m scripts.evaluation.evaluate_sl \
-    --manifest data/tsl60/TSL60_requests.csv \
-    --images outputs/images/flux_2_dev --bases outputs/bases \
-    --output outputs/sl/flux_2_dev
-  ```
+   ```bash
+   conda activate rtsl
+   python -m scripts.evaluation.generate_tsl60 flux_2_dev --host 127.0.0.1 --port 8001
+   ```
 
-- To measure text-rendering capability on CVTG100 and TIV100, restart the image backend and run:
+   Images are saved as `outputs/images/flux_2_dev/<id>.png`. For another model, use its name and port in this command and the paths below.
 
-  ```bash
-  python -m scripts.evaluation.generate_text_rendering flux_2_dev --port 8001
-  python -m scripts.evaluation.evaluate_text_rendering flux_2_dev
-  ```
+2. Generate matched base images with FLUX.2-dev. Start its backend on port `8001` if needed:
 
-## Compare GSL scorers
+   ```bash
+   python scripts/evaluation/prepare_nsl_bases.py --output outputs/bases \
+     --server http://127.0.0.1:8001/generate
+   ```
 
-The table compares VLMs on 1,440 TSL60 images from four open image generators. Human labels and GSL scores are classified as leakage when their normalized scores are $>0.5$. See the [benchmark guide](gsl_vlm_benchmark/README.md) to download images and labels, prepare OCR masks, and run each model.
+3. Stop the image backend if it shares GPUs with the scorer, then start Qwen3-VL-32B-Instruct in the [Qwen VQA environment](backends/README-vqa.md):
 
-Use **Qwen3-VL-32B-Instruct** for local scoring. For hosted scoring, **Qwen3 Omni Flash** via MuleRouter has the highest accuracy among the tested API models.
+   ```bash
+   conda activate qwen35-vllm
+   CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 vllm serve Qwen/Qwen3-VL-32B-Instruct --tensor-parallel-size 8 \
+     --served-model-name qwen3-vl-32b --max-model-len 8192 \
+     --enforce-eager --max-num-seqs 1 --port 18700
+   ```
+
+4. Run the evaluator:
+
+   ```bash
+   conda activate rtsl
+   python -m scripts.evaluation.evaluate_sl \
+     --manifest data/tsl60/TSL60_requests.csv \
+     --images outputs/images/flux_2_dev --bases outputs/bases \
+     --output outputs/sl/flux_2_dev
+   ```
+
+5. To measure text-rendering capability on CVTG100 and TIV100, restart the selected image backend and run:
+
+   ```bash
+   python -m scripts.evaluation.generate_text_rendering flux_2_dev --port 8001
+   python -m scripts.evaluation.evaluate_text_rendering flux_2_dev
+   ```
+
+### Use your own generator
+
+Provide the same HTTP interface:
+
+- `GET /health` returns `{"status":"ok"}`.
+- `POST /generate` accepts `{"prompt":"...","width":1024,"height":1024}` and returns `{"data":[{"b64_json":"<base64 PNG>","seed":123,"width":1024,"height":1024}]}`.
+
+Test the connection:
+
+```bash
+python test_generator.py custom --url http://127.0.0.1:8005
+```
+
+For the quickstart, set `MODEL = "custom"` and `SERVER_URL` in [quickstart_config.py](quickstart_config.py). To generate all TSL-60 images:
+
+```bash
+python -m scripts.evaluation.generate_tsl60 custom --host 127.0.0.1 --port 8005
+```
+
+The images are saved in `outputs/images/custom/`.
+
+## Choose a GSL scorer
+
+The evaluation above uses a vision-language model (VLM) to compute GSL. The table shows how closely each VLM's leakage decisions match human labels on the same 1,440 TSL-60 images generated by the four local models above. Both decisions use a score threshold of $>0.5$.
 
 | VLM | Acc (%) | Prec (%) | Recall (%) | F1 (%) |
 | --- | ---: | ---: | ---: | ---: |
@@ -136,3 +180,5 @@ Use **Qwen3-VL-32B-Instruct** for local scoring. For hosted scoring, **Qwen3 Omn
 | Qwen3.5-27B (local) | 89.65 | 94.36 | 87.15 | 90.61 |
 
 ![GSL scorer comparison](assets/gsl_vlm_benchmark.png)
+
+Use **Qwen3-VL-32B-Instruct** to reproduce the local scoring setup above. For API scoring, **Qwen3 Omni Flash** via MuleRouter achieved the highest accuracy in this comparison. Follow the [benchmark guide](gsl_vlm_benchmark/README.md) to run these scorers on the published images and labels.

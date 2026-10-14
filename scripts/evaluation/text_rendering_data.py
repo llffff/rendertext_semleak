@@ -5,11 +5,9 @@ import json
 from pathlib import Path
 from typing import NamedTuple
 
-from scripts.search.model_config import MODELS as ALL_MODELS
-
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_ROOT = ROOT / "outputs" / "text_rendering"
-MODELS = ALL_MODELS[:4]
+MODELS = ("flux_2_dev", "qwen_image", "z_image_turbo", "longcat", "custom")
 GENERATION_HOST = "http://127.0.0.1"
 
 
