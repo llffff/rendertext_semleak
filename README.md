@@ -4,7 +4,7 @@
 [![TSL-60 Dataset](https://img.shields.io/badge/TSL--60-Hugging%20Face-yellow?style=flat-square)](https://huggingface.co/datasets/feifeili00/rendertext_semleak)
 [![PyPI](https://img.shields.io/badge/PyPI-rtsl--scorer-blue?style=flat-square)](https://pypi.org/project/rtsl-scorer/)
 
-**[Paper](https://arxiv.org/abs/2610.11286) · [Quickstart](quickstart.ipynb) · [Agentic search](notebooks/agentic_search_demo.ipynb) · [Dataset](https://huggingface.co/datasets/feifeili00/rendertext_semleak) · [Scorer](rtsl-scorer/README.md)**
+**[Paper](https://arxiv.org/abs/2610.11286) · [Quickstart](quickstart.ipynb) · [Dataset](https://huggingface.co/datasets/feifeili00/rendertext_semleak) · [Scorer](rtsl-scorer/README.md)**
 
 Modern image generators read both a scene description and the words requested inside the image as part of the same prompt. Those words are meant to appear as text, yet their meaning can also shape the surrounding scene—rendered-text semantic leakage (TSL). In the example below, prompt enhancement removes a safety-sensitive phrase from a direct request but preserves it when the phrase is specified as scene text; the resulting image reflects its meaning outside the text region. This repository provides `rtsl-scorer` to measure leakage and a benchmark that compares automated judgments with human labels.
 
@@ -92,12 +92,6 @@ python test_generator.py local --url http://127.0.0.1:8001
 ```
 
 The image is saved in `outputs/generator_test.png`. To generate and visualize a small TSL-60 batch, run the [quickstart](quickstart.ipynb), which starts with three requests from its TSL-21 subset. Set `MODEL` and `PORT` in [quickstart_config.py](quickstart_config.py) before running it.
-
-### Search from a visual goal
-
-The [agentic search notebook](notebooks/agentic_search_demo.ipynb) shows the stage instructions and implementation alongside their calls and results: WOI preparation, text selection and rewriting, scene validation, generation, scoring, feedback, and the search loop. Edit [agentic_search_config.py](agentic_search_config.py), restart the kernel, and run the notebook cells in order. The default selects all goals in `notebooks/agentic_search_test_goals.csv` and allows up to five attempts per goal. A successful goal stops early. The batch stage records per-goal errors and continues with the remaining goals.
-
-The default uses OpenRouter for image generation, planning, and VQA; set `OPENROUTER_API_KEY` in the environment or repository `.env`. Calls may incur charges. OCR and CLIP run locally. The configuration file includes a commented alternative for local model servers. Install the scorer and notebook dependencies in the selected kernel environment (`python -m pip install pandas pillow torch jupyterlab`), then run from the repository root or `notebooks/`. The scene templates are included in `data/cvtg_templates.csv`, `data/textinvision_templates.csv`, and `data/synthetic_templates.csv`. Requests, images, feedback, and CSV summaries are saved under `outputs/agentic_search/`.
 
 ### Run TSL-60
 

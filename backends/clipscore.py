@@ -10,18 +10,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from pydantic import BaseModel
 from rtsl_scorer.clip import LocalCLIP
-from scripts.evaluation.clip_compatibility import compatibility_scores
 
 
 class CLIPRequest(BaseModel):
     filename: str = "image.png"
     image_base64: str
     text: str
-
-
-class CompatibilityRequest(BaseModel):
-    texts: list[str]
-    templates: list[str]
 
 
 @lru_cache(maxsize=1)
@@ -35,11 +29,6 @@ app = FastAPI(title="CLIP similarity", version="1.0")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@app.post("/v1/compatibility")
-def compatibility(request: CompatibilityRequest) -> dict[str, list[float]]:
-    return {"scores": compatibility_scores(request.texts, request.templates)}
 
 
 @app.post("/v1/clipscore")

@@ -9,9 +9,6 @@ __pycache__/
 build/
 dist/
 data/*
-!data/cvtg_templates.csv
-!data/textinvision_templates.csv
-!data/synthetic_templates.csv
 images/
 labels.csv
 gsl.csv
@@ -20,6 +17,5 @@ outputs/
 tests/
 mitigation/
 notebooks/*
-!notebooks/agentic_search_demo.ipynb
-!notebooks/agentic_search_test_goals.csv
+scripts/search/
 gsl_vlm_benchmark/scripts
